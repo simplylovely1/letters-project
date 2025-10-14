@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Letters — Ephemeral Speech (Rest & Rhythm)</title>
+  <style>
+    body {
+      background: #fefefe;
+      color: #222;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      overflow: hidden;
+      height: 100vh;
+      transition: background 1s ease;
+    }
+
+    .letter {
+      position: absolute;
+      font-size: 48px;
+      font-weight: 300;
+      pointer-events: none;
+      user-select: none;
+      opacity: 1;
+      transition: all 2s ease-out;
+      z-index: 10;
+    }
+
+    h1, p {
+      position: fixed;
+      top: 16px;
+      left: 20px;
+      margin: 0;
+      z-index: 100;
+    }
+    p { top: 56px; color: #777; font-size: 14px; }
+  </style>
+</head>
+
+<body>
+  <h1>Letters: Ephemeral Speech</h1>
+  <p>Each keystroke is a breath — appearing, fading, forgotten.</p>
+  <div id="output"></div>
+
+  <script>
+    let letters = [];
+    let lastTime = 0;
+
+    // 기본 사운드
+    function playTone(freq, duration = 0.2, type = "sine") {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+      osc.stop(ctx.currentTime + duration);
+    }
+
+    function createLetter(key) {
+      const el = document.createElement("span");
+      el.className = "letter";
+      el.textContent = key;
+      el.style.left = `${window.innerWidth / 2 + (Math.random() * 200 - 100)}px`;
+      el.style.top = `${window.innerHeight / 2 + (Math.random() * 200 - 100)}px`;
+      el.style.opacity = 1;
+      document.body.appendChild(el);
+      letters.push(el);
+      return el;
+    }
+
+    // 모음 (부드럽게 상승)
+    function vowelEffect(el, key, lifetime) {
+      const toneMap = { a: 220, e: 330, i: 440, o: 261, u: 196 };
+      playTone(toneMap[key.toLowerCase()] || 300, 0.6, "sine");
+      setTimeout(() => {
+        el.style.transform = "translateY(-120px) scale(1.8)";
+        el.style.opacity = 0;
+        el.style.color = "#888";
+      }, 50);
+      setTimeout(() => el.remove(), lifetime);
+    }
+
+    // 자음 (튕기며 흩어짐)
+    function consonantEffect(el, lifetime) {
+      playTone(400 + Math.random() * 200, 0.15, "square");
+      const x = (Math.random() - 0.5) * 200;
+      const y = (Math.random() - 0.5) * 200;
+      setTimeout(() => {
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${Math.random() * 360}deg)`;
+        el.style.opacity = 0;
+        el.style.color = "#444";
+      }, 50);
+      setTimeout(() => el.remove(), lifetime);
+    }
+
+    // Space = 진짜 공백 (휴식기)
+    function longPause() {
+      const curtain = document.createElement("div");
+      curtain.style.position = "fixed";
+      curtain.style.left = 0;
+      curtain.style.top = 0;
+      curtain.style.width = "100%";
+      curtain.style.height = "100%";
+      curtain.style.background = "white";
+      curtain.style.opacity = 0;
+      curtain.style.transition = "opacity 1.2s ease";
+      curtain.style.zIndex = 999;
+      document.body.appendChild(curtain);
+      playTone(150, 0.2, "sine");
+      setTimeout(() => curtain.style.opacity = 1, 50);
+      setTimeout(() => curtain.style.opacity = 0, 1200);
+      setTimeout(() => curtain.remove(), 2000);
+    }
+
+    // Enter = 단락 전환 (감정의 리셋)
+    function enterBreak() {
+      playTone(100, 0.3, "triangle");
+      document.body.style.background = "#ececec";
+      setTimeout(() => document.body.style.background = "#fefefe", 800);
+    }
+
+    // Backspace = 터지는 삭제
+    function explodeLast() {
+      const last = letters.pop();
+      if (!last) return;
+      playTone(80, 0.15, "sawtooth");
+      for (let i = 0; i < 10; i++) {
+        const p = document.createElement("div");
+        p.style.position = "absolute";
+        p.style.left = last.offsetLeft + "px";
+        p.style.top = last.offsetTop + "px";
+        p.style.width = "4px";
+        p.style.height = "4px";
+        p.style.background = "#444";
+        p.style.borderRadius = "50%";
+        p.style.opacity = 1;
+        p.style.transition = "all 0.8s ease-out";
+        document.body.appendChild(p);
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 120 + 30;
+        setTimeout(() => {
+          p.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+          p.style.opacity = 0;
+        }, 50);
+        setTimeout(() => p.remove(), 900);
+      }
+      last.remove();
+    }
+
+    // 타이핑 이벤트
+    document.addEventListener("keydown", function(event) {
+      const key = event.key;
+      const now = Date.now();
+      const speed = now - lastTime;
+      lastTime = now;
+
+      // 속도 → 생명 시간 (느릴수록 오래)
+      const lifetime = Math.min(Math.max(speed * 8, 9000), 12000);
+
+      if (key === "Backspace") {
+        explodeLast();
+        return;
+      }
+
+      if (key === " ") {
+        longPause();
+        return;
+      }
+
+      if (key === "Enter") {
+        enterBreak();
+        return;
+      }
+
+      if (key.length > 1) return;
+
+      const el = createLetter(key);
+
+      if ("aeiouAEIOU".includes(key)) {
+        vowelEffect(el, key, lifetime);
+      } else {
+        consonantEffect(el, lifetime);
+      }
+    });
+  </script>
+</body>
+</html>
