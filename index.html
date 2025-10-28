@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Letters — Ephemeral Speech (Enhanced)</title>
+  <title>Letters — Ephemeral Speech</title>
   <style>
     body {
       background: #fefefe;
@@ -21,7 +21,7 @@
       pointer-events: none;
       user-select: none;
       opacity: 1;
-      transition: all 2s ease-out;
+      transition: transform 1s ease-out, opacity 1s ease-out, color 1s ease-out;
       z-index: 10;
     }
 
@@ -32,7 +32,8 @@
       margin: 0;
       z-index: 100;
     }
-    p { top: 56px; color: #777; font-size: 14px; }
+    p.line1 { top: 56px; color: #777; font-size: 14px; }
+    p.line2 { top: 80px; color: #777; font-size: 14px; }
 
     .particle {
       position: absolute;
@@ -44,51 +45,112 @@
       user-select: none;
       z-index: 5;
     }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+    .overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #loveMessage {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      color: #ff99cc;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+      pointer-events: none;
+      z-index: 2000;
+    }
   </style>
 </head>
 
 <body>
   <h1>Letters: Ephemeral Speech</h1>
-  <p>Each keystroke is a breath — appearing, fading, forgotten.</p>
+  <p class = "line1">Each keystroke is a breath — appearing, fading, forgotten.</p>
+  <p class = "line2">We need LOVE.</p>
+  <div id="overlay" class="overlay">You need to type more carefully (slowly).</div>
+  <div id="loveMessage">Love resets everything.</div>
 
   <script>
+    // 🔊 AudioContext 깨우기
+    document.body.addEventListener("click", () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume();
+        ctx.close();
+      } catch (e) {}
+    }, { once: true });
+
     let letters = [];
     let lastTime = Date.now();
-    let currentBrightness = 254; // 초기 밝기
+    let currentBrightness = 254;
+    let locked = false;
+    let inputBuffer = "";
 
-    // 단계적 배경 밝기/어둡기
+    const overlay = document.getElementById("overlay");
+    const loveMsg = document.getElementById("loveMessage");
+
+    function showOverlay() { overlay.classList.add("show"); }
+    function hideOverlay() { overlay.classList.remove("show"); }
+
     function updateBackground(speed) {
-      const threshold = 200; 
-      const step = 8; 
+      const threshold = 200;
+      const step = 8;
 
-      if (speed < threshold) {
-        currentBrightness = Math.max(50, currentBrightness - step);
-      } else {
-        currentBrightness = Math.min(254, currentBrightness + step);
-      }
+      if (speed < threshold) currentBrightness = Math.max(0, currentBrightness - step);
+      else currentBrightness = Math.min(254, currentBrightness + step);
 
       document.body.style.background = `rgb(${currentBrightness},${currentBrightness},${currentBrightness})`;
+
+      if (currentBrightness <= 20 && !locked) {
+        locked = true;
+        showOverlay();
+        playTone(100, 0.5, "sine", 300);
+        setTimeout(() => {
+          hideOverlay();
+          locked = false;
+          currentBrightness = 150;
+          document.body.style.background = `rgb(${currentBrightness},${currentBrightness},${currentBrightness})`;
+        }, 3000);
+      }
     }
 
-    // 사운드 생성
     function playTone(freq, baseDuration = 0.2, type = "sine", speed = 200) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
 
-      osc.type = type;
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      const minSpeed = 50, maxSpeed = 500;
-      const normalized = Math.max(0, Math.min(1, (speed - minSpeed) / (maxSpeed - minSpeed)));
-      gain.gain.setValueAtTime(0.05 + (1 - normalized) * 0.3, ctx.currentTime);
-
-      osc.start();
-      const fadeDuration = baseDuration + (1 - normalized) * 0.6;
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + fadeDuration);
-      osc.stop(ctx.currentTime + fadeDuration);
+        const minSpeed = 50, maxSpeed = 500;
+        const normalized = Math.max(0, Math.min(1, (speed - minSpeed) / (maxSpeed - minSpeed)));
+        gain.gain.setValueAtTime(0.05 + (1 - normalized) * 0.3, ctx.currentTime);
+        osc.start();
+        const fadeDuration = baseDuration + (1 - normalized) * 0.6;
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + fadeDuration);
+        osc.stop(ctx.currentTime + fadeDuration);
+        setTimeout(() => ctx.close(), (fadeDuration + 0.1) * 1000);
+      } catch(e) {}
     }
 
     function createLetter(key) {
@@ -97,45 +159,50 @@
       el.textContent = key;
       el.style.left = `${window.innerWidth / 2 + (Math.random() * 200 - 100)}px`;
       el.style.top = `${window.innerHeight / 2 + (Math.random() * 200 - 100)}px`;
-      el.style.opacity = 1;
       document.body.appendChild(el);
       letters.push(el);
       return el;
     }
 
-    function vowelEffect(el, key, speed) {
-      // lifetime 계산: 빠를수록 짧고, 느릴수록 길게 (체감 확실)
-      const minLifetime = 2000;
-      const maxLifetime = 12000;
-      const clampedSpeed = Math.max(50, Math.min(speed, 1000));
-      const lifetime = minLifetime + (maxLifetime - minLifetime) * ((clampedSpeed - 50)/950) ** 3;
+    function calcLifetime(speed) {
+      const minLifetime = 10000;
+      const maxLifetime = 30000;
+      const clampedSpeed = Math.max(50, Math.min(1000, speed));
+      const factor = 1 - (clampedSpeed - 50) / 950;
+      return minLifetime + factor * (maxLifetime - minLifetime);
+    }
 
+    function vowelEffect(el, key, speed) {
+      const lifetime = calcLifetime(speed);
       const toneMap = { a: 220, e: 330, i: 440, o: 261, u: 196 };
       playTone(toneMap[key.toLowerCase()] || 300, 0.6, "sine", speed);
-
-      setTimeout(() => {
-        el.style.transform = "translateY(-120px) scale(1.8)";
-        el.style.opacity = 0;
+      const dx = (Math.random() - 0.5) * 50;
+      const dy = -100 + (Math.random() - 0.5) * 30;
+      requestAnimationFrame(() => {
+        el.style.transform = `translate(${dx}px, ${dy}px) scale(1.5)`;
         el.style.color = "#888";
-      }, 50);
-      setTimeout(() => el.remove(), lifetime);
+      });
+      setTimeout(() => {
+        el.style.transition = "opacity 2s ease-out";
+        el.style.opacity = 0;
+        setTimeout(() => el.remove(), 2000);
+      }, lifetime);
     }
 
     function consonantEffect(el, speed) {
-      const minLifetime = 2000;
-      const maxLifetime = 12000;
-      const clampedSpeed = Math.max(50, Math.min(speed, 1000));
-      const lifetime = minLifetime + (maxLifetime - minLifetime) * ((clampedSpeed - 50)/950) ** 3;
-
+      const lifetime = calcLifetime(speed);
       playTone(400 + Math.random() * 200, 0.15, "square", speed);
-      const x = (Math.random() - 0.5) * 200;
-      const y = (Math.random() - 0.5) * 200;
-      setTimeout(() => {
-        el.style.transform = `translate(${x}px, ${y}px) rotate(${Math.random() * 360}deg)`;
-        el.style.opacity = 0;
+      const dx = (Math.random() - 0.5) * 150;
+      const dy = (Math.random() - 0.5) * 150;
+      requestAnimationFrame(() => {
+        el.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.random() * 20 - 10}deg)`;
         el.style.color = "#444";
-      }, 50);
-      setTimeout(() => el.remove(), lifetime);
+      });
+      setTimeout(() => {
+        el.style.transition = "opacity 2s ease-out";
+        el.style.opacity = 0;
+        setTimeout(() => el.remove(), 2000);
+      }, lifetime);
     }
 
     function longPause() {
@@ -160,10 +227,9 @@
       playTone(120, 0.3, "triangle", 300);
       document.body.style.transform = "translateY(8px)";
       setTimeout(() => document.body.style.transform = "translateY(0)", 200);
-      document.body.style.background = `rgb(${currentBrightness},${currentBrightness},${currentBrightness})`;
     }
 
-    // 팡팡 효과: 입자들이 계속 화면 안에서 튕기며 떠다님
+    // 💥 폭발 효과 (Backspace + Love)
     function explodeLast() {
       const last = letters.pop();
       if (!last) return;
@@ -183,55 +249,72 @@
         function animateParticle() {
           x += speedX;
           y += speedY;
-
-          // 화면 경계에서 튕기기
           if (x < 0 || x > window.innerWidth - 4) speedX *= -1;
           if (y < 0 || y > window.innerHeight - 4) speedY *= -1;
-
           p.style.left = x + "px";
           p.style.top = y + "px";
-
           requestAnimationFrame(animateParticle);
         }
-
         animateParticle();
       }
-
       last.remove();
     }
 
+    // 💖 love Easter egg
+    function triggerLove() {
+      if (letters.length === 0) return;
+
+      playTone(440, 0.8, "sine", 100);
+      playTone(660, 1, "triangle", 150);
+
+      while (letters.length > 0) explodeLast();
+
+      currentBrightness = 254;
+      document.body.style.background = "#fff";
+
+      loveMsg.style.opacity = 1;
+      setTimeout(() => loveMsg.style.opacity = 0, 2500);
+
+      const flash = document.createElement("div");
+      flash.style.position = "fixed";
+      flash.style.inset = 0;
+      flash.style.background = "rgba(255,182,193,0.8)";
+      flash.style.zIndex = 1500;
+      flash.style.transition = "opacity 1s ease";
+      document.body.appendChild(flash);
+      setTimeout(() => flash.style.opacity = 0, 100);
+      setTimeout(() => flash.remove(), 1200);
+      document.querySelectorAll('.particle').forEach(p => p.remove());
+    }
+
     document.addEventListener("keydown", function(event) {
+      if (locked) return;
       const key = event.key;
       const now = Date.now();
       const speed = now - lastTime;
       lastTime = now;
 
+      // 💖 love Easter egg 입력 감지
+      if (key.length === 1 && /[a-zA-Z]/.test(key)) {
+        inputBuffer += key.toLowerCase();
+        if (inputBuffer.endsWith("love")) {
+          triggerLove();
+          inputBuffer = "";
+          return;
+        }
+        if (inputBuffer.length > 8) inputBuffer = inputBuffer.slice(-8);
+      }
+
+
       updateBackground(speed);
-
-      if (key === "Backspace") {
-        explodeLast();
-        return;
-      }
-
-      if (key === " ") {
-        longPause();
-        return;
-      }
-
-      if (key === "Enter") {
-        enterBreak();
-        return;
-      }
-
+      if (key === "Backspace") return explodeLast();
+      if (key === " ") return longPause();
+      if (key === "Enter") return enterBreak();
       if (key.length > 1) return;
 
       const el = createLetter(key);
-
-      if ("aeiouAEIOU".includes(key)) {
-        vowelEffect(el, key, speed);
-      } else {
-        consonantEffect(el, speed);
-      }
+      if ("aeiouAEIOU".includes(key)) vowelEffect(el, key, speed);
+      else consonantEffect(el, speed);
     });
   </script>
 </body>
