@@ -173,78 +173,70 @@
     }
 
     function vowelEffect(el, key, speed) {
-      const lifetime = calcLifetime(speed);
-      const toneMap = { a: 220, e: 330, i: 440, o: 261, u: 196 };
-      playTone(toneMap[key.toLowerCase()] || 300, 0.6, "sine", speed);
-      scatterLetters(el, key, speed);
-    }
+  const lifetime = calcLifetime(speed);
+  const toneMap = { a: 220, e: 330, i: 440, o: 261, u: 196 };
+  playTone(toneMap[key.toLowerCase()] || 300, 0.6, "sine", speed);
 
-    function consonantEffect(el, speed) {
-      const lifetime = calcLifetime(speed);
-      playTone(400 + Math.random() * 200, 0.15, "square", speed);
-      scatterLetters(el, el.textContent, speed);
-    }
+  const isSlow = speed > 250; // 천천히 타이핑할수록 큰 값
+  const radius = isSlow ? 60 : 150; // 원형 반경 or 직선 거리
+  const angle = Math.random() * 2 * Math.PI;
 
-    function scatterLetters(el, key, speed) {
-      const isSlow = speed > 250;
-      const numPieces = isSlow ? 8 : 12;
-      const radius = isSlow ? 100 : 250;
-      const baseX = el.offsetLeft;
-      const baseY = el.offsetTop;
+  let dx, dy;
+  if (isSlow) {
+    // 🌸 원형 퍼짐 (부드럽고 둥글게)
+    dx = Math.cos(angle) * radius * (Math.random() * 0.5 + 0.5);
+    dy = Math.sin(angle) * radius * (Math.random() * 0.5 + 0.5);
+  } else {
+    // ⚡ 직선 퍼짐 (빠르고 날카롭게)
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    dx = dir * (radius + Math.random() * 100);
+    dy = (Math.random() - 0.5) * 50;
+  }
 
-      // 중심 글자 색
-      el.style.color = isSlow ? "#666" : "#111";
-      el.style.opacity = 0.8;
-      el.style.transform = "scale(1.1)";
-      
-      for (let i = 0; i < numPieces; i++) {
-        const piece = document.createElement("span");
-        piece.className = "letter";
-        piece.textContent = key;
-        piece.style.left = baseX + "px";
-        piece.style.top = baseY + "px";
-        piece.style.fontSize = isSlow ? "24px" : "18px";
-        piece.style.opacity = 0.7;
-        piece.style.zIndex = 5;
-        document.body.appendChild(piece);
+  requestAnimationFrame(() => {
+    el.style.transform = `translate(${dx}px, ${dy}px) scale(${isSlow ? 1.2 : 1.7})`;
+    el.style.color = isSlow ? "#888" : "#333";
+    el.style.textShadow = isSlow ? "0 0 8px rgba(200,200,200,0.6)" : "0 0 2px rgba(0,0,0,0.6)";
+  });
 
-        let dx, dy;
+  setTimeout(() => {
+    el.style.transition = "opacity 2s ease-out";
+    el.style.opacity = 0;
+    setTimeout(() => el.remove(), 2000);
+  }, lifetime);
+}
 
-        if (isSlow) {
-          // 🌸 부드러운 원형 퍼짐
-          const angle = (i / numPieces) * 2 * Math.PI + Math.random() * 0.3;
-          const dist = radius * (0.6 + Math.random() * 0.4);
-          dx = Math.cos(angle) * dist;
-          dy = Math.sin(angle) * dist;
-        } else {
-          // ⚡ 빠른 선형 퍼짐
-          const angle = (Math.random() - 0.5) * 0.4; // 직선 근처 (약간의 오차)
-          const dist = radius * (0.8 + Math.random() * 0.4);
-          dx = Math.cos(angle) * dist * (Math.random() < 0.5 ? 1 : -1);
-          dy = Math.sin(angle) * 30; // 거의 직선처럼
-        }
 
-        requestAnimationFrame(() => {
-          piece.style.transform = `translate(${dx}px, ${dy}px) scale(${isSlow ? 1.3 : 1.6}) rotate(${Math.random() * 20 - 10}deg)`;
-          piece.style.opacity = 0.4;
-          piece.style.color = isSlow ? "#888" : "#333";
-          piece.style.transition = "transform 2.5s ease-out, opacity 2.5s ease-out";
-        });
+function consonantEffect(el, speed) {
+  const lifetime = calcLifetime(speed);
+  playTone(400 + Math.random() * 200, 0.15, "square", speed);
 
-        setTimeout(() => {
-          piece.style.opacity = 0;
-          setTimeout(() => piece.remove(), 2000);
-        }, 2000 + Math.random() * 1000);
-      }
+  const isSlow = speed > 250;
+  const radius = isSlow ? 50 : 200;
+  const angle = Math.random() * 2 * Math.PI;
 
-      // 중심 글자 천천히 사라지기
-      setTimeout(() => {
-        el.style.transition = "opacity 1.5s ease-out";
-        el.style.opacity = 0;
-        setTimeout(() => el.remove(), 1500);
-      }, 2000);
-    }
+  let dx, dy;
+  if (isSlow) {
+    // 🌿 부드러운 원형 퍼짐
+    dx = Math.cos(angle) * radius;
+    dy = Math.sin(angle) * radius;
+  } else {
+    // ⚡ 빠른 직선적 퍼짐
+    dx = (Math.random() - 0.5) * 400;
+    dy = (Math.random() - 0.5) * 50;
+  }
 
+  requestAnimationFrame(() => {
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${isSlow ? 0 : (Math.random() * 30 - 15)}deg)`;
+    el.style.color = isSlow ? "#555" : "#111";
+  });
+
+  setTimeout(() => {
+    el.style.transition = "opacity 2s ease-out";
+    el.style.opacity = 0;
+    setTimeout(() => el.remove(), 2000);
+  }, lifetime);
+}
 
 
     function longPause() {
